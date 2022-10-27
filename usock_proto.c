@@ -29,7 +29,7 @@ void send_message(void * send_buf, int send_buf_len, uint32_t message_type) {
     memcpy((void*)&send_buf[4], &message_type, 4);
     memcpy((void*)&send_buf[8], send_buf, send_buf_len);
     sent_len = usock_write_message(send_buf, send_len);
-    printf("sent %d bytes", sent_len);
+    printf("sent %d bytes\n", sent_len);
     //console_log("sent %d bytes", sent_len);
 }
 
@@ -38,16 +38,23 @@ uint32_t process_recv_message(char* rd_buf, int rd_buf_len) {
     // return the type of message received, and copy the contents of the message into recv_buf
     uint32_t  proto_message_len = 0;
     uint32_t  proto_message_type = 0;
+    //debug
+    printf("start of processing message \n");
     memcpy(&proto_message_len, rd_buf, 4);
+    //debug
+    printf("rd length of packet = %d\n", proto_message_len);
+    printf("length of packet arg = %d\n", rd_buf_len);
     memcpy(&proto_message_type, &rd_buf[4], 4);
+    printf("-------\n packet type = %02x\n ---------\n", proto_message_type);
     if (proto_message_len <= 8) {
         printf("insufficient message packet recvd: lenght recvd: %d\n", proto_message_len);
         //console_log("insufficient message packet recvd: lenght recvd: %d\n", proto_message_len);
         return 0;
     }
     if (proto_message_len == rd_buf_len) {
-        memcpy(recv_buf, (void*)send_buf[8], rd_buf_len - 8);
-        printf("recvd msg type %02x\n", proto_message_type);
+        //debug
+        printf("copying data to recv buf\n");
+        memcpy(recv_buf, (void*)&rd_buf[8], rd_buf_len - 8);
         //console_log("recvd msg type %02x\n", proto_message_type);
     }
     else {

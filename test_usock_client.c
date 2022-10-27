@@ -41,6 +41,8 @@ void test_send_data() {
 int main() {
   int loop_count = 0;
   int err;
+
+  register_process_messages_callback(process_recv_message);
   err = pthread_create(&client_id, NULL, &usock_task, NULL);
 
   while (1) {

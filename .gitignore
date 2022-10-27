@@ -54,3 +54,7 @@ dkms.conf
 #vscode directory
 .vscode/
 
+#binary files
+test_usock_server
+test_usock_client
+

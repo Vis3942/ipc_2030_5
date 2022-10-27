@@ -13,6 +13,14 @@ int cli2srv_usock_fd = -1;
 int conn_cli2srv_usock_fd = -1;
 char rd_buf[1024];
 
+static void (*process_messages)(char *buffer, int size) = NULL;
+
+void register_process_messages_callback(void (*ptr)( char *buffer, int size ))
+{
+  //debug
+  printf("in register callback \n");
+  process_messages = ptr;
+}
 
 void usock_client2server_open()
 {
@@ -103,6 +111,14 @@ void usock_client2server_read_message()
     // connection closed by client
     printf("connection closed by client\n");
     usock_client2server_connection_close();
+  } 
+  else {
+    // process the message
+    if (process_messages != NULL) {
+      // debug
+      printf("processing message at %0xld\n", process_messages);
+      (*process_messages)(rd_buf, n);
+    }
   }
 }
 
@@ -186,6 +202,7 @@ int usock_server2client_write_message(char* send_buf, int send_buf_len)
 {
   int n;
 
+  n = -1;
   if (conn_srv2cli_usock_fd > 0) {
 	n = send(conn_srv2cli_usock_fd, send_buf, send_buf_len, 0);
     if (n < 0) {

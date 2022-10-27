@@ -29,6 +29,16 @@ int cli2srv_usock_fd = -1;
 int status_cli2srv_usock = UNIX_SOCK_CLIENT2SERVER_UNCONNECTED;
 char rd_buf[1024];
 
+static void (*process_messages)(char *buffer, int size) = NULL;
+
+void register_process_messages_callback(void (*ptr)( char *buffer, int size ))
+{
+  //debug
+  printf("in register callback \n");
+  process_messages = ptr;
+}
+
+
 void usock_client2server_close()
 {
   if (cli2srv_usock_fd > 0)
@@ -88,10 +98,12 @@ int usock_client2server_write_message(char* send_buf, int send_buf_len)
   int n;
   int sts;
 
+  //debug
+  printf("status cli2srv = %d, fd cli2srv = %d \n", status_cli2srv_usock, cli2srv_usock_fd);
   if (status_cli2srv_usock != UNIX_SOCK_CLIENT2SERVER_CONNECTED) {
     sts = usock_client2server_open();
     if (sts == 0) {
-      status_cli2srv_usock = UNIX_SOCK_SERVER2CLIENT_CONNECTED;
+      status_cli2srv_usock = UNIX_SOCK_CLIENT2SERVER_CONNECTED;
     }
     else {
       cli2srv_usock_fd = -1;
@@ -100,7 +112,7 @@ int usock_client2server_write_message(char* send_buf, int send_buf_len)
   }
 
   n = -1;
-  if ( ( status_cli2srv_usock = UNIX_SOCK_SERVER2CLIENT_CONNECTED ) && 
+  if ( ( status_cli2srv_usock = UNIX_SOCK_CLIENT2SERVER_CONNECTED ) && 
         (cli2srv_usock_fd > 0) 
   ) {
   	n = send(cli2srv_usock_fd, send_buf, send_buf_len, 0);
@@ -109,9 +121,11 @@ int usock_client2server_write_message(char* send_buf, int send_buf_len)
       //console_log("error writing to server.");
       perror("write to server:");
       usock_client2server_close();
+      usock_server2client_close();
+      status_cli2srv_usock = UNIX_SOCK_CLIENT2SERVER_ERROR;
     }
     else {
-      printf("sent %d bytes to client\n", n);
+      printf(" bytes to client\n", n);
     }
   }
   return n;
@@ -177,6 +191,20 @@ void usock_server2client_read_message()
   if (n < 0) {
     perror("recv from server:");
     usock_server2client_close();
+  } 
+  else if (n == 0) {
+    // connection closed
+    printf("connection closed\n");
+    usock_server2client_close();
+    usock_client2server_close();
+  }
+  else {
+    // process the message
+    if (process_messages != NULL) {
+      // debug
+      printf("processing message at %0xld\n", process_messages);
+      (*process_messages)(rd_buf, n);
+    }
   }
 }
 
@@ -232,7 +260,12 @@ void usock_task() {
   printf("start task: init completed\n");
   while (1) {
     usock_message_handler(); // does all read, for write use usock_write_message
-    //sleep(25);
+    if ( (status_srv2cli_usock == UNIX_SOCK_SERVER2CLIENT_ERROR)  || 
+         (status_srv2cli_usock == UNIX_SOCK_SERVER2CLIENT_UNCONNECTED) 
+    ) {
+      usock_init();
+    }
+    sleep(10);
   }
 }
 
